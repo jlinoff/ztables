@@ -1,5 +1,5 @@
 # ztables
-Ever wonder how Standard Normal and Student t-Distribution z-tables are generated?
+Ever wonder how Standard Normal and Student-t Distribution z-tables are generated?
 
 ## Introduction
 This program shows how to generate z-tables for Standard Normal
