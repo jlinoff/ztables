@@ -12,7 +12,8 @@ show how to do a binary search the over probabilities to find the
 desired z-value.
 
 It is meant to be a learning tool for those that are interested in
-how the tables are generated.
+how the tables are generated. For production code using the scipy
+and numpy packages. They are optimized and much better debugged.
 
 I explicitly chose to use the trapezoidal rule to approximate the
 definite integral representing the area under the curve for two points
