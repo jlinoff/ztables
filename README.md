@@ -88,7 +88,7 @@ Option        | Long                      | Description
 -m&nbsp;FLOAT | --minimum FLOAT           | z-value at minus infinity.
 -p&nbsp;FLOAT | --probability FLOAT       | Find the z-value for this probability. Must be in the range 0.001 to .9999.
 -s            | --snd                     | Generate the SND table unless -p specified. If -p is specified use the SND to find the z-value.
--t DOF        | --tdist DOF               | Generate the t-dist table with DOF degress of freedome unless -p specified. If -p is specified use the t-dist to find the z-value.
+-t DOF        | --tdist DOF               | Generate the t-dist table with DOF degress of freedom unless -p specified. If -p is specified use the t-dist to find the z-value.
 -u&nbsp;FLOAT | --upper-bound&nbsp;FLOAT  | The rightmost z-value to report.
 -v            | --verbose                 | Increase the level of verbosity. Only used for debugging -p.
 -V            | --version                 | Print the program version and exit.
