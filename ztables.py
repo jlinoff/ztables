@@ -379,7 +379,7 @@ EXAMPLES:
   $ # ================================
   $ # Example 3: Generate the z-table for the Student-t Distribution
   $ #            with 20 degrees of freedom
-  $ {0} -t -d 20
+  $ {0} -t 20
 
   $ # ================================
   $ # Example 4: Generate the z-values for 90%, 95% and 98% using the SND
