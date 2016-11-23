@@ -33,7 +33,7 @@ books.
    $ ztables.py -s
 
    z-Table for Standard Normal Distribution (10,000)
-   
+
      z     .00     .01     .02     .03     .04     .05     .06     .07     .08     .09
    =====  ======  ======  ======  ======  ======  ======  ======  ======  ======  ======
     -3.4  0.0003  0.0003  0.0003  0.0003  0.0003  0.0003  0.0003  0.0003  0.0003  0.0002
@@ -55,15 +55,14 @@ various Student-t distributions. It shows how the distributions
 converge on the SND values as the DOF increases.
 
    $ ./ztables.py -s -t 10 -t 20 -t 30 -t 100 -t 200 -p 0.95 -p 0.98 -p 0.99
-   
+
    Probabilities to z-values Table
-   
-                        t-dist  t-dist  t-dist  t-dist  t-dist
-     Probability  SND     10      20      30     100     200  
-     ===========  ====  ======  ======  ======  ======  ======
-        95.00%    1.96    2.23    2.09    2.04    1.98    1.97
-        98.00%    2.33    2.77    2.53    2.46    2.37    2.34
-        99.00%    2.58    3.17    2.84    2.75    2.62    2.60
+
+     Probability   SND    T-10     T-20     T-30     T-100    T-200
+     ===========  =====  =======  =======  =======  =======  =======
+       95.00%     1.960    2.229    2.086    2.042    1.984    1.972
+       98.00%     2.326    2.765    2.528    2.457    2.364    2.345
+       99.00%     2.576    3.172    2.845    2.750    2.626    2.601
 '''
 import argparse
 import math
@@ -71,7 +70,8 @@ import os
 import sys
 
 
-VERSION = '0.9.0'  # pre-release
+#VERSION = '0.9.0'  # pre-release
+VERSION = '0.9.1'  # Update to fix -s 0.95 ==> 2.576 instead of 2.577
 
 
 def gamma(x):
@@ -190,10 +190,10 @@ def area_under_curve(x1, x2, intervals, fct, *args, **kwargs):
     '''
     assert x2 > x1  # just a sanity check
     assert intervals > 1  # another sanity check
-    
+
     total_area = 0.0
     width = (float(x2) - float(x1)) / float(intervals)
-    
+
     x = float(x1)
     py = float(fct(x, *args, **kwargs))
     for i in range(intervals):
@@ -203,10 +203,10 @@ def area_under_curve(x1, x2, intervals, fct, *args, **kwargs):
         total_area += rectangle_area + triangle_area  # trapezoid area
         x += width  # advance to the next edge
         py = y  # remember the previous height
-        
+
     return total_area
 
-    
+
 def ztable(title, lower_bound, upper_bound, minval, intervals, fct, *args):
     '''
     Create the z values table for the standard normal distribution.
@@ -256,14 +256,14 @@ def binary_search_for_z(probability, tolerance, maxtop, minval, iterations, verb
         q = area_under_curve(minval, z, iterations, fct, *args)
         current_probability = 1.0 - (2.0 * (1.0 - q))
         diff = abs(current_probability - probability)
-        
+
         if verbose:
             print('    p={0:>.4f},  z={1:>.2f},  d={2:>.4f}, q={3:>.4f}, m={4}'.format(current_probability,
                                                                                        z,
                                                                                        diff,
                                                                                        q,
                                                                                        maxtop))
-            
+
         if probability < current_probability:
             # It is to the right.
             top = mid
@@ -272,7 +272,7 @@ def binary_search_for_z(probability, tolerance, maxtop, minval, iterations, verb
             bot = mid
         else:
             break
-        
+
         assert top <= maxtop
         assert bot >= 0
 
@@ -294,38 +294,36 @@ Probabilities to z-values Table
 ''')
 
     # Create the header.
-    h0 = '             '
     h1 = '  Probability'
     h2 = '  ==========='
 
     if opts.snd is True or opts.tdist is None:
-        h0 += '      '
-        h1 += '  SND '
-        h2 += '  ===='
-        
+        h1 += '   SND '
+        h2 += '  ====='
+
     if opts.tdist:
         for tdist in opts.tdist:
-            h0 += '  t-dist'
-            h1 += '  {:^6}'.format(tdist)
-            h2 += '  ======'
-                     
-    write(h0 + '\n')
+            h = 'T-{}'.format(tdist)
+            h1 += '  {:^7}'.format(h)
+            h2 += '  ======='
+
+    write('\n')
     write(h1 + '\n')
     write(h2 + '\n')
-            
+
     for probability in opts.probability:
         write('  {0:^11.2%}'.format(probability))
         flush()
 
         if opts.snd is True or opts.tdist is None:
-            z = binary_search_for_z(probability, 0.0001, maxtop, opts.minimum, opts.intervals, opts.verbose, pdf_snd)
-            write('  {0:4.2f}'.format(z))
+            z = binary_search_for_z(probability, opts.tolerance, maxtop, opts.minimum, opts.intervals, opts.verbose, pdf_snd)
+            write('  {0:5.3f}'.format(z))
             flush()
 
         if opts.tdist:
             for tdist in opts.tdist:
-                z = binary_search_for_z(probability, 0.0001, maxtop, opts.minimum, opts.intervals, opts.verbose, pdf_t, tdist)
-                write('  {0:6.2f}'.format(z))
+                z = binary_search_for_z(probability, opts.tolerance, maxtop, opts.minimum, opts.intervals, opts.verbose, pdf_t, tdist)
+                write('  {0:7.3f}'.format(z))
                 flush()
 
         write('\n')
@@ -350,7 +348,7 @@ def getopts():
         except ValueError:
             raise argparse.ArgumentTypeError('Probability must be a floating point number.')
         return float(val)
-    
+
     # Trick to capitalize the built-in headers.
     # Unfortunately I can't get rid of the ":" reliably.
     def gettext(s):
@@ -360,7 +358,7 @@ def getopts():
             'show this help message and exit': 'Show this help message and exit.\n ',
         }
         return lookup.get(s, s)
-    
+
     argparse._ = gettext  # to capitalize help headers
     base = os.path.basename(sys.argv[0])
     name = os.path.splitext(base)[0]
@@ -429,7 +427,7 @@ Default=%(default)s. This was determined empirically.
 standard deviations to the left of the center of the curve.
 Default=%(default)s.
  ''')
-    
+
     parser.add_argument('-m', '--minimum',
                         action='store',
                         type=float,
@@ -468,6 +466,15 @@ generate the z-values for the probabilities using the SND.
 distribution with DOF degrees of freedom.
  ''')
 
+    parser.add_argument('-T', '--tolerance',
+                        action='store',
+                        type=float,
+                        metavar=('TOLERANCE'),
+                        default=0.00001,
+                        help='''Tolerance for the binary search. Normally you do not
+need to change this.
+''')
+
     parser.add_argument('-u', '--upper-bound',
                         action='store',
                         type=float,
@@ -488,7 +495,7 @@ Default=%(default)s.
                         version='%(prog)s v{0}'.format(VERSION),
                         help="""Show program's version number and exit.
  """)
-    
+
     opts = parser.parse_args()
     return opts
 
@@ -508,7 +515,7 @@ def main():
                    opts.minimum,
                    opts.intervals,
                    pdf_snd)
-            
+
         if opts.tdist is not None:
             for tdist in opts.tdist:
                 title = 'z-Table for Student-t Distribution '
@@ -520,7 +527,7 @@ def main():
                        opts.intervals,
                        pdf_t,
                        tdist)
-                
+
         if opts.tdist is None and opts.snd is False:
             print('WARNING: You must specify -s or -t to generate a z-value table, see -h for more details.')
     else:
