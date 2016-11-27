@@ -71,7 +71,8 @@ import sys
 
 
 #VERSION = '0.9.0'  # pre-release
-VERSION = '0.9.1'  # Update to fix -s 0.95 ==> 2.576 instead of 2.577
+#VERSION = '0.9.1'  # Update to fix -s 0.95 ==> 2.576 instead of 2.577
+VERSION = '0.9.2'  # Eliminated --minimum, not needed.
 
 
 def gamma(x):
@@ -207,7 +208,7 @@ def area_under_curve(x1, x2, intervals, fct, *args, **kwargs):
     return total_area
 
 
-def ztable(title, lower_bound, upper_bound, minval, intervals, fct, *args):
+def ztable(title, lower_bound, upper_bound, intervals, fct, *args):
     '''
     Create the z values table for the standard normal distribution.
     '''
@@ -221,13 +222,15 @@ def ztable(title, lower_bound, upper_bound, minval, intervals, fct, *args):
     write = sys.stdout.write
     flush = sys.stdout.flush
 
+    maxv = 2 * round(abs(lower_bound) + upper_bound + 0.5, 0)
+    minv = -maxv
     z = lower_bound
     while z <= upper_bound:
         write('{0:>5.1f}'.format(z))
 
         z1 = z
         for i in range(10):
-            probability = area_under_curve(minval, float(z1), intervals, fct, *args)
+            probability = area_under_curve(minv, float(z1), intervals, fct, *args)
             write('  {0:.4f}'.format(probability))
             flush()
             z1 += 0.01 if z >= 0 else -0.01
@@ -238,7 +241,7 @@ def ztable(title, lower_bound, upper_bound, minval, intervals, fct, *args):
     write('\n')
 
 
-def binary_search_for_z(probability, tolerance, maxtop, minval, iterations, verbose, fct, *args):
+def binary_search_for_z(probability, tolerance, maxval, minval, iterations, verbose, fct, *args):
     '''
     Get the z value that matches the specified percentage.
     '''
@@ -246,34 +249,31 @@ def binary_search_for_z(probability, tolerance, maxtop, minval, iterations, verb
     if verbose:
         print('')
     z = 0.0
-    adjustment = float(maxtop) / 2.0
-    top = maxtop
+    adjustment = float(maxval) / 2.0
+    top = maxval
     bot = 0.0
     diff = tolerance * 2  # start the loop
     while diff > tolerance:
         mid = bot + ((top - bot) / 2.0)
         z = mid - adjustment
         q = area_under_curve(minval, z, iterations, fct, *args)
-        current_probability = 1.0 - (2.0 * (1.0 - q))
-        diff = abs(current_probability - probability)
+        cp = 1.0 - (2.0 * (1.0 - q))
+        diff = abs(cp - probability)
 
         if verbose:
-            print('    p={0:>.4f},  z={1:>.2f},  d={2:>.4f}, q={3:>.4f}, m={4}'.format(current_probability,
-                                                                                       z,
-                                                                                       diff,
-                                                                                       q,
-                                                                                       maxtop))
+            print('    p={}, cp={}, t={:f}, mt={}, mv={}, i={}, top={}, bot={}, mid={}, z={}, q={}, d={}'.format(
+                probability, cp, tolerance, maxval, minval, iterations, top, bot, mid, z, q, diff))
 
-        if probability < current_probability:
+        if probability < cp:
             # It is to the right.
             top = mid
-        elif probability > current_probability:
+        elif probability > cp:
             # It is to the left.
             bot = mid
         else:
             break
 
-        assert top <= maxtop
+        assert top <= maxval
         assert bot >= 0
 
     return z
@@ -287,7 +287,8 @@ def probability_table(opts):
     '''
     write = sys.stdout.write
     flush = sys.stdout.flush
-    maxtop = 2 * round(abs(opts.lower_bound) + opts.upper_bound + 0.5, 0)
+    maxv = 2 * round(abs(opts.lower_bound) + opts.upper_bound + 0.5, 0)
+    minv = -maxv
 
     write('''
 Probabilities to z-values Table
@@ -316,13 +317,13 @@ Probabilities to z-values Table
         flush()
 
         if opts.snd is True or opts.tdist is None:
-            z = binary_search_for_z(probability, opts.tolerance, maxtop, opts.minimum, opts.intervals, opts.verbose, pdf_snd)
+            z = binary_search_for_z(probability, opts.tolerance, maxv, minv, opts.intervals, opts.verbose, pdf_snd)
             write('  {0:5.3f}'.format(z))
             flush()
 
         if opts.tdist:
             for tdist in opts.tdist:
-                z = binary_search_for_z(probability, opts.tolerance, maxtop, opts.minimum, opts.intervals, opts.verbose, pdf_t, tdist)
+                z = binary_search_for_z(probability, opts.tolerance, maxv, minv, opts.intervals, opts.verbose, pdf_t, tdist)
                 write('  {0:7.3f}'.format(z))
                 flush()
 
@@ -428,20 +429,6 @@ standard deviations to the left of the center of the curve.
 Default=%(default)s.
  ''')
 
-    parser.add_argument('-m', '--minimum',
-                        action='store',
-                        type=float,
-                        metavar=('FLOAT'),
-                        default=-7.0,
-                        help='''The minimum value used as the left most bound for
-calculations.  This is the number of standard deviations to
-the left of the center of the curve that is used to
-represent minus infinity. It needs be large enough that a
-reasonable value can be obtained for the lower bound. It
-must be smaller than the lower-bound.
-Default=%(default)s. This was deemed sufficient empirically.
- ''')
-
     parser.add_argument('-p', '--probability',
                         action='append',
                         type=p_opt,
@@ -512,7 +499,6 @@ def main():
             ztable(title,
                    opts.lower_bound,
                    opts.upper_bound,
-                   opts.minimum,
                    opts.intervals,
                    pdf_snd)
 
@@ -523,7 +509,6 @@ def main():
                 ztable(title,
                        opts.lower_bound,
                        opts.upper_bound,
-                       opts.minimum,
                        opts.intervals,
                        pdf_t,
                        tdist)
