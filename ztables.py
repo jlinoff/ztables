@@ -72,7 +72,8 @@ import sys
 
 #VERSION = '0.9.0'  # pre-release
 #VERSION = '0.9.1'  # Update to fix -s 0.95 ==> 2.576 instead of 2.577
-VERSION = '0.9.2'  # Eliminated --minimum, not needed.
+#VERSION = '0.9.2'  # Eliminated --minimum, not needed.
+VERSION = '0.9.3' # Added --brief
 
 
 def gamma(x):
@@ -290,66 +291,92 @@ def probability_table(opts):
     maxv = 2 * round(abs(opts.lower_bound) + opts.upper_bound + 0.5, 0)
     minv = -maxv
 
-    write('''
+    if opts.brief == False:
+        # Only print the header in non-brief mode.
+        write('''
 Probabilities to z-values Table
 ''')
 
-    # Create the header.
-    h1 = '  Probability'
-    h2 = '  ==========='
+        # Create the header.
+        h1 = '  Probability'
+        h2 = '  ==========='
+        
+        if opts.snd is True or opts.tdist is None:
+            h1 += '   SND '
+            h2 += '  ====='
 
-    if opts.snd is True or opts.tdist is None:
-        h1 += '   SND '
-        h2 += '  ====='
+        if opts.tdist:
+            for tdist in opts.tdist:
+                h = 'T-{}'.format(tdist)
+                h1 += '  {:^7}'.format(h)
+                h2 += '  ======='
 
-    if opts.tdist:
-        for tdist in opts.tdist:
-            h = 'T-{}'.format(tdist)
-            h1 += '  {:^7}'.format(h)
-            h2 += '  ======='
-
-    write('\n')
-    write(h1 + '\n')
-    write(h2 + '\n')
+        write('\n')
+        write(h1 + '\n')
+        write(h2 + '\n')
 
     for probability in opts.probability:
-        write('  {0:^11.2%}'.format(probability))
+        if opts.brief == True:
+            write('{0:.2%}'.format(probability))
+        else:
+            write('  {0:^11.2%}'.format(probability))
         flush()
 
         if opts.snd is True or opts.tdist is None:
             z = binary_search_for_z(probability, opts.tolerance, maxv, minv, opts.intervals, opts.verbose, pdf_snd)
-            write('  {0:5.3f}'.format(z))
+            if opts.brief == True:
+                write(' {0:.3f}'.format(z))
+            else:
+                write('  {0:5.3f}'.format(z))
             flush()
 
         if opts.tdist:
             for tdist in opts.tdist:
                 z = binary_search_for_z(probability, opts.tolerance, maxv, minv, opts.intervals, opts.verbose, pdf_t, tdist)
-                write('  {0:7.3f}'.format(z))
+                if opts.brief == True:
+                    write(' {0:.3f}'.format(z))
+                else:
+                    write('  {0:7.3f}'.format(z))
                 flush()
 
         write('\n')
 
-    write('\n')
+    if opts.brief == False:
+        write('\n')
 
 
 def getopts():
     '''
     Get the command line options.
     '''
-
-    def p_opt(val):
+    def parse_probality_args():
         '''
-        The probability.
-        Must be between .001 and .9999.
+        Parse a probability specification as a floating point
+        between 0.001 and 0.9999.
+        Will also correct probabilities entered between 1 and 100.
         '''
-        try:
-            num = float(val)
-            if num < 0.001 or num > 0.9999:
-                raise argparse.ArgumentTypeError('Probability is out of range: [0.001..0.9999].')
-        except ValueError:
-            raise argparse.ArgumentTypeError('Probability must be a floating point number.')
-        return float(val)
-
+        class ParseProbabiltyCls(argparse.Action):
+            def __call__(self, parser, args, values, option_string=None):
+                array = getattr(args, self.dest)
+                if array is None:
+                    array = []
+                
+                for val in values.split(','):
+                    try:
+                        num = float(val)
+                        if 1. <= num < 100.:
+                            # Allow the user to specify: 95 and translate to 0.95
+                            num = num / 100.
+                        if num < 0.001 or num > 0.9999:
+                            msg = 'argument "{}" is out of range [0.001..0.999]: {}'.format(self.dest, num)
+                            parser.error(msg)
+                        array.append(num)
+                        setattr(args, self.dest, array)
+                    except ValueError as e:
+                        msg = 'argument "{}" has an invalid probability value: {}'.format(self.dest, e)
+                        parser.error(msg)
+        return ParseProbabiltyCls
+        
     # Trick to capitalize the built-in headers.
     # Unfortunately I can't get rid of the ":" reliably.
     def gettext(s):
@@ -393,6 +420,17 @@ EXAMPLES:
   $ # Example 6: Generate the z-values for 95% and 98% using the SND
   $ #            and the t-distribution with 200 DOF
   $ {0} -s -t 200 -p 0.95 -p 0.98
+
+  $ #  ================================
+  $ # Example 7: Generate p values in brief format which it suitable
+  $ #            for parsing.
+  $ {0} --b -p 0.90 -p 0.95 -p 0.98 -s
+
+  $ #  ================================
+  $ # Example 8: Generate p values in brief format which it suitable
+  $ #            for parsing. Use percent values and let z-tables
+  $ #            convert them.
+  $ {0} --b -p 90,95,98 -s
  '''.format(base)
     afc = argparse.RawTextHelpFormatter
     parser = argparse.ArgumentParser(formatter_class=afc,
@@ -400,6 +438,14 @@ EXAMPLES:
                                      usage=usage,
                                      epilog=epilog)
 
+    parser.add_argument('-b', '--brief',
+                        action='store_true',
+                        help='''Output the result in a brief (terse) format that is
+suitable for parsing.
+This option only affects the output of the probabilities to z-values table.
+It does not affect the z-tables.
+ ''')
+    
     parser.add_argument('-i', '--intervals',
                         action='store',
                         type=int,
@@ -430,12 +476,17 @@ Default=%(default)s.
  ''')
 
     parser.add_argument('-p', '--probability',
-                        action='append',
-                        type=p_opt,
+                        action=parse_probality_args(),
                         metavar=('FLOAT'),
                         help='''The probablity to generate a z-value for. It must be number
 between 0.001 and 0.999. Generate the z-value for this
 probability using the SND.
+
+If you enter a percentage 1 <= p < 100, it will be correctly
+converted automatically. Here is an example: -p 99 (same as -p 0.99)
+
+You can also enter multiple commad separated values to avoid
+retyping the -p option. Here is an example: -p 95,98,99.
  ''')
 
     parser.add_argument('-s', '--snd',
@@ -460,7 +511,7 @@ distribution with DOF degrees of freedom.
                         default=0.00001,
                         help='''Tolerance for the binary search. Normally you do not
 need to change this.
-''')
+ ''')
 
     parser.add_argument('-u', '--upper-bound',
                         action='store',
