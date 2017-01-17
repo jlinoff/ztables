@@ -73,7 +73,8 @@ import sys
 #VERSION = '0.9.0'  # pre-release
 #VERSION = '0.9.1'  # Update to fix -s 0.95 ==> 2.576 instead of 2.577
 #VERSION = '0.9.2'  # Eliminated --minimum, not needed.
-VERSION = '0.9.3' # Added --brief
+#VERSION = '0.9.3' # Added --brief
+VERSION = '0.9.4' # Fix gamma calculation issue for x==1 problem
 
 
 def gamma(x):
@@ -90,7 +91,7 @@ def gamma(x):
        gamma(7/2) = 3.32335097045
        gamma(4)   = 6.0
     '''
-    if (x - int(x)) == 0:
+    if (x - int(x)) == 0 and x != 1:
         # Optimization for integer values: (x-1)!.
         return reduce(lambda a, b: a * b, [float(i) for i in range(1, int(x))])
 
